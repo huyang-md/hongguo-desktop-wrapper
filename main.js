@@ -6,6 +6,8 @@ const fs = require('fs');
 const HOME_URL = 'https://hongguoduanju.com/';
 const HOST_RE = /(^|\.)hongguoduanju\.com$/i;
 const DETAIL_RE = /hongguoduanju\.com\/detail/i;
+// 播放器页面:老板键暂停判断用(真实播放页是 /player/<id>,不是 /detail)
+const PLAYER_RE = /hongguoduanju\.com\/(detail|player)/i;
 
 let win = null;
 let tray = null;
@@ -74,7 +76,7 @@ function showWin() {
 // ---------- 老板键:先尽力暂停播放,再隐藏窗口;再按一次唤回 ----------
 function pausePlayback() {
   if (!win || win.isDestroyed()) return;
-  if (!DETAIL_RE.test(lastUrl)) return;
+  if (!PLAYER_RE.test(lastUrl)) return;
   // 模拟一次空格键按下/抬起,相当于用户亲手按了暂停,不涉及任何接口调用
   win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Space' });
   setTimeout(() => {
