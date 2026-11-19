@@ -59,6 +59,11 @@ function isInternal(url) {
   try { return HOST_RE.test(new URL(url).hostname); } catch { return false; }
 }
 
+// 只把 http/https 交给系统浏览器,拦截 file:/javascript: 等危险协议
+function isWebUrl(url) {
+  try { return /^https?:$/.test(new URL(url).protocol); } catch { return false; }
+}
+
 function showWin() {
   if (!win) { createWindow(); return; }
   if (win.isMinimized()) win.restore();
@@ -148,7 +153,8 @@ function createWindow() {
 
   // 点关闭 = 缩到托盘,真正退出走托盘菜单
   win.on('close', (e) => {
-    saveState();
+    // 小窗模式下退出时不覆盖记忆的常规窗口尺寸
+    if (!miniMode) saveState();
     if (!quitting) {
       e.preventDefault();
       win.hide();
@@ -163,14 +169,14 @@ function createWindow() {
   // 站内新窗口在主窗口打开,站外链接交给系统浏览器
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isInternal(url)) win.loadURL(url);
-    else shell.openExternal(url);
+    else if (isWebUrl(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
 
   win.webContents.on('will-navigate', (e, url) => {
     if (!isInternal(url)) {
       e.preventDefault();
-      shell.openExternal(url);
+      if (isWebUrl(url)) shell.openExternal(url);
     }
   });
 
@@ -264,7 +270,8 @@ if (!gotLock) {
     // 去掉 UA 里的 Electron 标识,避免站点按爬虫/特殊客户端处理
     app.userAgentFallback = app.userAgentFallback.replace(/\s*Electron\/[\d.]+/, '');
     Menu.setApplicationMenu(buildMenu());
-    globalShortcut.register('Control+Shift+B', bossKey);
+    globalShortcut.register('Control+Shift+B', bossKey) ||
+      console.warn('[hongguo] Ctrl+Shift+B 快捷键注册失败,可能被其他程序占用');
     createWindow();
     createTray();
   });
