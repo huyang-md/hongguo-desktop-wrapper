@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, shell, nativeImage, globalShortcut } = require('electron');
+const { app, BrowserWindow, Tray, Menu, shell, nativeImage, globalShortcut, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -125,6 +125,76 @@ function toggleAutoLaunch(item) {
   app.setLoginItemSettings({ openAtLogin: item.checked, path: process.execPath });
 }
 
+// ---------- 应用内检查更新 ----------
+const RELEASES_API = 'https://api.github.com/repos/huyang-md/hongguo-desktop-wrapper/releases/latest';
+const updateCheckPath = () => path.join(app.getPath('userData'), 'update-check.json');
+
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+    if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+  }
+  return 0;
+}
+
+async function fetchLatestRelease() {
+  const res = await fetch(RELEASES_API, {
+    headers: { 'User-Agent': 'hongguo-desktop-wrapper' },
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const j = await res.json();
+  const tag = String(j.tag_name || '').replace(/^v/, '');
+  if (!tag) throw new Error('no tag_name');
+  return {
+    tag,
+    url: j.html_url || 'https://github.com/huyang-md/hongguo-desktop-wrapper/releases/latest'
+  };
+}
+
+function msgBox(opts) {
+  const parent = win && !win.isDestroyed() ? win : undefined;
+  return parent ? dialog.showMessageBox(parent, opts) : dialog.showMessageBox(opts);
+}
+
+function showUpdateDialog(tag, url) {
+  msgBox({
+    type: 'info',
+    title: '发现新版本',
+    message: `红果短剧桌面客户端 ${tag} 已发布`,
+    detail: '前往 Releases 页下载新安装包,覆盖安装即可,观看记录不受影响。',
+    buttons: ['前往下载', '以后再说'],
+    defaultId: 0,
+    cancelId: 1
+  }).then(({ response }) => {
+    if (response === 0) shell.openExternal(url);
+  });
+}
+
+async function checkUpdate(interactive) {
+  try {
+    const { tag, url } = await fetchLatestRelease();
+    saveJSON(updateCheckPath(), { lastCheck: Date.now() });
+    if (compareVersions(tag, app.getVersion()) > 0) {
+      showUpdateDialog(tag, url);
+    } else if (interactive) {
+      msgBox({ type: 'info', title: '检查更新', message: `已是最新版本(v${app.getVersion()})` });
+    }
+  } catch {
+    if (interactive) {
+      msgBox({ type: 'warning', title: '检查更新', message: '检查更新失败,请检查网络后重试' });
+    }
+  }
+}
+
+function maybeAutoCheckUpdate() {
+  const st = loadJSON(updateCheckPath(), {});
+  if (st.lastCheck && Date.now() - st.lastCheck < 24 * 3600 * 1000) return;
+  checkUpdate(false);
+}
+
 function createWindow() {
   const st = loadState() || {};
   win = new BrowserWindow({
@@ -206,6 +276,7 @@ function setTrayMenu() {
     { type: 'separator' },
     { label: '小窗置顶 (430×760)', click: () => { showWin(); toggleMini(); } },
     { label: '老板键 Ctrl+Shift+B', click: bossKey },
+    { label: '检查更新', click: () => { showWin(); checkUpdate(true); } },
     { type: 'separator' },
     { label: '开机自启', type: 'checkbox', checked: isAutoLaunch(), click: toggleAutoLaunch },
     { label: '清空观看记录', click: () => { saveHistory([]); setTrayMenu(); } },
@@ -245,6 +316,7 @@ function buildMenu() {
       submenu: [
         { label: '小窗置顶', click: toggleMini },
         { label: '老板键(隐藏/唤出,全局生效)', click: bossKey },
+        { label: '检查更新', click: () => checkUpdate(true) },
         { type: 'separator' },
         { label: '开机自启', type: 'checkbox', checked: isAutoLaunch(), click: toggleAutoLaunch },
         { label: '清空观看记录', click: () => { saveHistory([]); setTrayMenu(); } }
@@ -271,11 +343,14 @@ if (!gotLock) {
   app.whenReady().then(() => {
     // 去掉 UA 里的 Electron 标识,避免站点按爬虫/特殊客户端处理
     app.userAgentFallback = app.userAgentFallback.replace(/\s*Electron\/[\d.]+/, '');
+    // 深色原生标题栏,与站点暗色主题一致
+    nativeTheme.themeSource = 'dark';
     Menu.setApplicationMenu(buildMenu());
     globalShortcut.register('Control+Shift+B', bossKey) ||
       console.warn('[hongguo] Ctrl+Shift+B 快捷键注册失败,可能被其他程序占用');
     createWindow();
     createTray();
+    maybeAutoCheckUpdate();
   });
 }
 
