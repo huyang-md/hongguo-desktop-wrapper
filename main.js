@@ -413,7 +413,19 @@ function setTrayMenu() {
 
 function createTray() {
   try {
-    tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')));
+    // 多尺度托盘图标:系统按 DPI 自动取 16/32/48px 中最清晰的一档,避免 256px 直接缩糊
+    const icon = nativeImage.createEmpty();
+    let any = false;
+    for (const [size, scale] of [[16, 1], [32, 2], [48, 3]]) {
+      const p = path.join(__dirname, 'assets', `icon-${size}.png`);
+      if (fs.existsSync(p)) {
+        icon.addRepresentation({ scaleFactor: scale, buffer: fs.readFileSync(p) });
+        any = true;
+      }
+    }
+    tray = any
+      ? new Tray(icon)
+      : new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')));
   } catch {
     tray = null;
     return false;
