@@ -1,8 +1,20 @@
 # 红果短剧电脑版 · Hongguo Desktop Wrapper
 
+![Latest Release](https://img.shields.io/github/v/release/huyang-md/hongguo-desktop-wrapper)
+![Downloads](https://img.shields.io/github/downloads/huyang-md/hongguo-desktop-wrapper/total)
+![License](https://img.shields.io/github/license/huyang-md/hongguo-desktop-wrapper)
+
 **红果短剧 电脑版 | Windows 客户端 | 免安装 | 无需安卓模拟器 | 源码 100% 开源**
 
 把[红果短剧官方网页版](https://hongguoduanju.com/)装进一个原生 Windows 窗口:沉浸全屏刷剧、老板键一键隐藏、小窗置顶边干活边看、自动记住看过的剧。
+
+## 📸 界面预览
+
+| 首页 | 剧集详情 |
+|---|---|
+| ![首页](docs/preview-home.png) | ![详情](docs/preview-detail.png) |
+| **小窗置顶模式** | |
+| ![小窗模式](docs/preview-mini.png) | |
 
 ## 📥 下载安装
 
@@ -21,6 +33,7 @@
 - **小窗置顶**(430×760 竖屏比例):边干活边刷剧
 - **观看历史**:托盘「最近看过」一键直达,仅存本地、可清空
 - **检查更新**:菜单/托盘一键检查,发现新版直达下载页;启动时每天自动查一次
+- **反馈问题**:托盘/菜单一键直达 Issue 页,自动附上应用版本信息
 - **开机自启**:托盘菜单勾选即可
 - **F11 沉浸全屏**;`Ctrl+R` 刷新 / `Ctrl+=` `Ctrl+-` `Ctrl+0` 缩放
 - 记住窗口位置、大小、最大化/全屏状态;单实例防重复启动

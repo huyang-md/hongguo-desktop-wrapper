@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Tray, Menu, shell, nativeImage, globalShortcut, dialog, nativeTheme } = require('electron');
+const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
@@ -195,6 +196,18 @@ function maybeAutoCheckUpdate() {
   checkUpdate(false);
 }
 
+// ---------- 用户反馈入口:预填版本信息,直达 GitHub 新建 Issue ----------
+function feedbackUrl() {
+  const body = [
+    `应用版本: v${app.getVersion()}`,
+    `系统: Windows ${os.release()}`,
+    `Electron: ${process.versions.electron}`,
+    '',
+    '问题描述:'
+  ].join('\n');
+  return `https://github.com/huyang-md/hongguo-desktop-wrapper/issues/new?title=${encodeURIComponent('【反馈】')}&body=${encodeURIComponent(body)}`;
+}
+
 function createWindow() {
   const st = loadState() || {};
   win = new BrowserWindow({
@@ -277,6 +290,7 @@ function setTrayMenu() {
     { label: '小窗置顶 (430×760)', click: () => { showWin(); toggleMini(); } },
     { label: '老板键 Ctrl+Shift+B', click: bossKey },
     { label: '检查更新', click: () => { showWin(); checkUpdate(true); } },
+    { label: '反馈问题', click: () => shell.openExternal(feedbackUrl()) },
     { type: 'separator' },
     { label: '开机自启', type: 'checkbox', checked: isAutoLaunch(), click: toggleAutoLaunch },
     { label: '清空观看记录', click: () => { saveHistory([]); setTrayMenu(); } },
@@ -317,6 +331,7 @@ function buildMenu() {
         { label: '小窗置顶', click: toggleMini },
         { label: '老板键(隐藏/唤出,全局生效)', click: bossKey },
         { label: '检查更新', click: () => checkUpdate(true) },
+        { label: '反馈问题', click: () => shell.openExternal(feedbackUrl()) },
         { type: 'separator' },
         { label: '开机自启', type: 'checkbox', checked: isAutoLaunch(), click: toggleAutoLaunch },
         { label: '清空观看记录', click: () => { saveHistory([]); setTrayMenu(); } }
