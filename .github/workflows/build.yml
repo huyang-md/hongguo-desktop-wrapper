@@ -1,29 +1,45 @@
 name: Build Windows Installer
 
-# 推送 v* 标签时自动构建 exe 并挂到 Release;也可手动触发
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  check:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
+      - run: npm ci
+      - run: node --check main.js
 
-      # 版本号取自标签(去掉 v 前缀),保证产物文件名与标签一致;一致时跳过
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: check
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - name: Derive version from tag
-        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
           TAG_V="${GITHUB_REF_NAME#v}"
@@ -33,34 +49,29 @@ jobs:
           else
             echo "package.json already at $PKG_V, skip npm version"
           fi
-
-      - name: Install dependencies
-        run: npm ci
-
+      - run: npm ci
       - name: Build installer
         run: npm run dist -- --publish never
-
       - name: Compute SHA-256
-        if: startsWith(github.ref, 'refs/tags/')
         id: sha
         shell: bash
-        run: echo "hash=$(sha256sum dist/*.exe | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-
+        run: |
+          sha256sum dist/*.exe | tee dist/checksums.sha256
+          echo "hash=$(sha256sum dist/*.exe | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - name: Prepare release notes
-        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
           cat > release-notes.md <<EOF
           ## SHA-256
           \`${{ steps.sha.outputs.hash }}\`
 
-          > ⚠️ 请仅从本仓库 Releases 页下载安装包;其他站点(网盘/下载站/聚合站)分发的 exe 无法保证未被篡改,认准上方校验值。
+          > ⚠️ 请仅从本仓库 Releases 页下载安装包;其他站点(网盘/下载站/聚合站)分发的 exe 无法保证未被篡改,认准上方校验值(或 checksums.sha256 侧车文件)。
           EOF
-
       - name: Upload release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          files: |
+            dist/*.exe
+            dist/checksums.sha256
           body_path: release-notes.md
           generate_release_notes: true

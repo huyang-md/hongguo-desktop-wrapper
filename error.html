@@ -8,26 +8,51 @@
   .box{text-align:center}
   h1{font-size:20px;font-weight:600;margin:0 0 12px}
   p{color:#9a9aa2;font-size:14px;margin:0 0 8px}
-  button{background:#fa4242;color:#fff;border:0;border-radius:8px;padding:10px 28px;font-size:14px;cursor:pointer;margin-top:14px}
+  button{background:#fa4242;color:#fff;border:0;border-radius:8px;padding:10px 28px;font-size:14px;cursor:pointer;margin:14px 6px 0}
   button:hover{background:#ff5c5c}
+  button.ghost{background:#2a2b33}
   #countdown{font-size:13px;color:#6f6f78}
 </style>
 </head>
 <body>
   <div class="box">
     <h1>加载失败</h1>
-    <p>无法连接红果短剧官网,请检查网络后重试</p>
+    <p id="netinfo">无法连接红果短剧官网,请检查网络后重试</p>
     <p id="countdown">10 秒后自动重试…</p>
-    <button onclick="location.replace('https://hongguoduanju.com/')">立即重试</button>
+    <button onclick="retryNow()">立即重试</button>
+    <button class="ghost" onclick="openSite()">在浏览器打开官网</button>
   </div>
   <script>
-    var n = 10;
+    // 离线状态直接说明原因,不做无意义重试
+    if (!navigator.onLine) {
+      document.getElementById('netinfo').textContent = '当前处于离线状态,请先联网';
+      document.getElementById('countdown').textContent = '联网后将自动重试';
+      window.addEventListener('online', retryNow, { once: true });
+    }
+
+    // 退避重试:10s → 20s → 40s → 封顶 60s,避免永远 10 秒一跳
+    var delays = [10, 20, 40, 60, 60];
+    var idx = 0;
     var el = document.getElementById('countdown');
-    var timer = setInterval(function () {
-      n--;
-      if (n <= 0) { clearInterval(timer); location.replace('https://hongguoduanju.com/'); }
-      else el.textContent = n + ' 秒后自动重试…';
-    }, 1000);
+    var timer = null;
+
+    function arm() {
+      var n = delays[Math.min(idx, delays.length - 1)];
+      el.textContent = n + ' 秒后自动重试…';
+      timer = setInterval(function () {
+        n--;
+        if (n <= 0) { clearInterval(timer); retryNow(); }
+        else el.textContent = n + ' 秒后自动重试…';
+      }, 1000);
+    }
+
+    function retryNow() {
+      clearInterval(timer);
+      idx++;
+      location.replace('https://hongguoduanju.com/');
+    }
+
+    arm();
   </script>
 </body>
 </html>
